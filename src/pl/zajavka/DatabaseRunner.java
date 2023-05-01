@@ -19,6 +19,7 @@ public class DatabaseRunner {
             "SELECT DATE(deadline) AS DATE, ARRAY_AGG(name) AS TASKS FROM TODO GROUP BY DATE(deadline) ORDER BY DATE;";
     private static final String SQL_DELETE = "DELETE FROM TODO WHERE NAME = ?;";
     private static final String SQL_DELETE_ALL = "DELETE FROM TODO;";
+    private static final String SQL_COMPLETED = "UPDATE TODO SET STATUS = ? WHERE NAME = ?;";
 
     private final Map<Command.Type, Consumer<Command>> EXECUTION_MAP;
 
@@ -30,7 +31,8 @@ public class DatabaseRunner {
                 Command.Type.READ_ALL, this::runReadAll,
                 Command.Type.READ_GROUPED, this::runGrouped,
                 Command.Type.DELETE, this::runDelete,
-                Command.Type.DELETE_ALL, this::runDeleteAll
+                Command.Type.DELETE_ALL, this::runDeleteAll,
+                Command.Type.COMPLETED, this::runCompleted
         );
     }
 
@@ -160,6 +162,7 @@ public class DatabaseRunner {
             toDoItem.setDescription(resultSet.getString(ToDoItem.Field.DESCRIPTION.name()));
             toDoItem.setDeadline(resultSet.getTimestamp(ToDoItem.Field.DEADLINE.name()).toLocalDateTime());
             toDoItem.setPriority(resultSet.getInt(ToDoItem.Field.PRIORITY.name()));
+            toDoItem.setStatus(ToDoItem.Status.valueOf(resultSet.getString(ToDoItem.Field.STATUS.name())));
             result.add(toDoItem);
         }
         return result;
@@ -167,20 +170,21 @@ public class DatabaseRunner {
 
     private void print(List<ToDoItem> readItems) {
         System.out.println("PRINTING TO DO LIST");
-        String schema = "%-25s%-25s%-25s%-25s%n";
+        String schema = "%-25s%-25s%-25s%-25s%-25s%n";
         System.out.printf(schema,
                 ToDoItem.Field.NAME.name(),
                 ToDoItem.Field.DESCRIPTION.name(),
                 ToDoItem.Field.DEADLINE.name(),
-                ToDoItem.Field.PRIORITY.name());
-        readItems.forEach(
-                entry -> System.out.printf(
-                        schema,
-                        entry.getName(),
-                        entry.getDescription(),
-                        entry.getDeadline(),
-                        entry.getPriority()
-                ));
+                ToDoItem.Field.PRIORITY.name(),
+                ToDoItem.Field.STATUS.name());
+        readItems.forEach(entry -> System.out.printf(
+                schema,
+                entry.getName(),
+                entry.getDescription(),
+                entry.getDeadline(),
+                entry.getPriority(),
+                entry.getStatus()
+        ));
     }
 
     private void print(Map<String, String> items) {
@@ -208,6 +212,7 @@ public class DatabaseRunner {
             System.err.printf("[%s] data error. Message: [%s]%n", command.getType(), e.getMessage());
         }
     }
+
     private void runDeleteAll(final Command command) {
         if (!Command.Type.DELETE_ALL.equals(command.getType())) {
             throw new IllegalArgumentException(command.getType().getName());
@@ -217,6 +222,24 @@ public class DatabaseRunner {
                 Connection connection = DriverManager.getConnection(URL, USERNAME, PASSWORD);
                 PreparedStatement statement = connection.prepareStatement(SQL_DELETE_ALL)
         ) {
+            int count = statement.executeUpdate();
+            System.out.printf("Run: [%s] successfully, deleted: [%s]%n", command.getType(), count);
+        } catch (SQLException e) {
+            System.err.printf("[%s] data error. Message: [%s]%n", command.getType(), e.getMessage());
+        }
+    }
+
+    private void runCompleted(final Command command) {
+        if (!Command.Type.COMPLETED.equals(command.getType())) {
+            throw new IllegalArgumentException(command.getType().getName());
+        }
+
+        try (
+                Connection connection = DriverManager.getConnection(URL, USERNAME, PASSWORD);
+                PreparedStatement statement = connection.prepareStatement(SQL_COMPLETED)
+        ) {
+            statement.setString(1, command.getToDoItem().getStatus().name());
+            statement.setString(2, command.getToDoItem().getName());
             int count = statement.executeUpdate();
             System.out.printf("Run: [%s] successfully, deleted: [%s]%n", command.getType(), count);
         } catch (SQLException e) {

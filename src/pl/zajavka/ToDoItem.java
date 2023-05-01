@@ -10,6 +10,11 @@ public class ToDoItem {
     private String description;
     private LocalDateTime deadline;
     private Integer priority;
+    private Status status;
+
+    public ToDoItem() {
+        this.status = Status.TODO;
+    }
 
     public String getName() {
         return name;
@@ -43,6 +48,14 @@ public class ToDoItem {
         this.priority = priority;
     }
 
+    public Status getStatus() {
+        return status;
+    }
+
+    public void setStatus(Status status) {
+        this.status = status;
+    }
+
     @Override
     public String toString() {
         return "ToDoItem{" +
@@ -58,6 +71,12 @@ public class ToDoItem {
         DESCRIPTION,
         DEADLINE,
         PRIORITY,
-        SORT
+        SORT,
+        STATUS
+    }
+
+    public enum Status {
+        TODO,
+        COMPLETED
     }
 }

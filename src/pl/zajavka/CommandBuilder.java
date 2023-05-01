@@ -8,9 +8,9 @@ public class CommandBuilder {
 
     Optional<Command> buildCommand(final String line) {
         String[] split = line.split(";");
-        String commandType = split[0];
-        if (!Command.Type.valuesAsList().contains(commandType)) {
-            System.err.printf("User provided unknown command: [%s]%n", commandType);
+        String commandTypeSplit = split[0];
+        if (!Command.Type.valuesAsList().contains(commandTypeSplit)) {
+            System.err.printf("User provided unknown command: [%s]%n", commandTypeSplit);
             return Optional.empty();
         }
 
@@ -18,16 +18,16 @@ public class CommandBuilder {
 
         Map<String, String> parametersMap = stringCommandWithParamExtracted.stream()
                 .map(item -> item.split("="))
-//                .filter(paramSplit -> !ToDoItem.Field.SORT.name().equals(paramSplit[0]))
                 .collect(Collectors.toMap(itemSplit -> itemSplit[0], itemSplit -> itemSplit[1]));
 
         List<String> sortingParams = Optional.ofNullable(parametersMap.get(ToDoItem.Field.SORT.name()))
                 .map(params -> List.of(params.split(",")))
                 .orElse(Collections.emptyList());
 
-        ToDoItem toDoItem = buildToDoItem(parametersMap);
+        Command.Type commandType = Command.Type.from(commandTypeSplit);
+        ToDoItem toDoItem = buildToDoItem(commandType, parametersMap);
         return Optional.of(new Command(
-                Command.Type.from(commandType),
+                commandType,
                 toDoItem,
                 findSortingField(sortingParams),
                 findSortingDir(sortingParams)
@@ -60,16 +60,24 @@ public class CommandBuilder {
         }
     }
 
-    private ToDoItem buildToDoItem(final Map<String, String> parametersMap) {
+    private ToDoItem buildToDoItem(final Command.Type commandType, final Map<String, String> parametersMap) {
         ToDoItem toDoItem = new ToDoItem();
         Optional.ofNullable(parametersMap.get(ToDoItem.Field.NAME.name()))
                 .ifPresent(toDoItem::setName);
+
         Optional.ofNullable(parametersMap.get(ToDoItem.Field.DESCRIPTION.name()))
                 .ifPresent(toDoItem::setDescription);
+
         Optional.ofNullable(parametersMap.get(ToDoItem.Field.DEADLINE.name()))
                 .ifPresent(deadline -> toDoItem.setDeadline(LocalDateTime.parse(deadline, ToDoItem.DATE_FORMAT)));
+
         Optional.ofNullable(parametersMap.get(ToDoItem.Field.PRIORITY.name()))
                 .ifPresent(priority -> toDoItem.setPriority(Integer.valueOf(priority)));
+
+        Optional.of(commandType)
+                .filter(Command.Type.COMPLETED::equals)
+                .ifPresent(completed -> toDoItem.setStatus(ToDoItem.Status.COMPLETED));
+
         return toDoItem;
     }
 }
